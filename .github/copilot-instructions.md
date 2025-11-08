@@ -16,7 +16,8 @@
 - **Styling**: TailwindCSS v4
 - **Build Tool**: Vite
 - **State Management**: Svelte stores (writable)
-- **Blockchain**: [TO BE IMPLEMENTED - suggest web3 libraries]
+- **Blockchain**: ethers.js v6, MetaMask, Base Sepolia testnet
+- **Smart Contract**: ERC-721 NFT with 24-hour expiry (deployed to Base Sepolia)
 
 ## Project Structure
 
@@ -24,6 +25,7 @@
 src/
 ├── lib/
 │   ├── stores.ts          # Global state management
+│   ├── web3.ts            # Web3 utilities (wallet, minting, network switching)
 │   ├── components/         # UI components for each flow step
 │   │   ├── Hero.svelte
 │   │   ├── Tutorial.svelte
@@ -36,6 +38,8 @@ src/
 └── routes/
     ├── +page.svelte       # Main app with component routing
     └── +layout.svelte
+
+ShowerNFT.sol              # ERC-721 smart contract (deployed)
 ```
 
 ## Current Flow
@@ -83,15 +87,17 @@ Components use: `import { showView } from '$lib/stores';`
 
 ## Planned Features (Not Yet Implemented)
 
-- [ ] Blockchain integration (wallet connection, NFT minting)
-- [ ] Timer/countdown for 24-hour NFT validity
+- [x] Blockchain integration (wallet connection, NFT minting) ✅ **COMPLETE**
+- [ ] Timer/countdown for 24-hour NFT validity (contract supports it, UI not yet implemented)
 - [ ] Push notification system for "stinky" alerts
 - [ ] Friend list / social features
 - [ ] Photo upload for shower selfies
 - [ ] Streak tracking
 - [ ] Leaderboard of "cleanest" students
 - [ ] NFT gallery/badge display
-- [ ] Mock sensor data (accelerometer, microphone)
+- [ ] Enhanced smart contract metadata (shower duration, timestamp stored on-chain)\*
+
+\*Note: Current smart contract is basic ERC-721 with 24-hour expiry logic. We may enhance it later to store shower duration, thoughts, and other metadata directly on-chain or via IPFS.
 
 ## When Suggesting New Features
 
@@ -109,12 +115,28 @@ Components use: `import { showView } from '$lib/stores';`
 
 ## Blockchain Integration Notes
 
-When implementing:
+**Current Implementation (v1.0):**
 
-- Use **MetaMask** for wallet connection
-- Consider **Base** for low fees
-- NFT metadata should include: timestamp, expiry time, user identifier
-- Smart contract should auto-expire NFTs after 24 hours
+- ✅ MetaMask wallet connection with auto-network switching
+- ✅ Base Sepolia testnet deployment
+- ✅ ERC-721 NFT minting (simple version)
+- ✅ 24-hour expiry logic in smart contract (`isValid()`, `timeRemaining()`)
+- ✅ Transaction tracking and BaseScan links
+- ✅ OpenSea testnet integration for viewing NFTs
+
+**Smart Contract:** `ShowerNFT.sol`
+
+- Basic ERC-721 with mint timestamp tracking
+- Validity period: 24 hours from mint
+- Functions: `mint()`, `isValid()`, `timeRemaining()`, `expiryTime()`
+- Deployed to Base Sepolia at: `0x4068028D9161B31c3dde5C5C99C4F12205b6C7b7`
+
+**Future Enhancements:**
+
+- Store shower duration, thoughts, and verification data on-chain
+- Implement auto-burn or transfer on expiry
+- Add IPFS metadata with custom NFT images
+- Emit events for better indexing and notifications
 
 ## Testing/Running
 

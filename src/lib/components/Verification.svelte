@@ -1,167 +1,252 @@
 <script lang="ts">
-  import { showView, totalTime } from "$lib/stores";
-  import { onMount, onDestroy } from "svelte";
+    import { showView, totalTime } from '$lib/stores';
+    import { onMount, onDestroy } from 'svelte';
 
-  let verificationStarted = false;
-  let timer = 300;
-  let timerDisplay = "5:00";
-  let volumePercent = 0;
-  let statusMessage = "Verification in Progress...";
-  let statusClass = "text-green-600 pulse-slow";
+    let verificationStarted = false;
+    let running = false;
+    let elapsed = 0; // cumulative seconds of detected showering
+    let display = '0:00';
+    let volumePercent = 0;
+    let statusMessage = 'Ready to verify...';
+    let statusClass = 'text-gray-600';
 
-  let audioContext: AudioContext | null;
-  let analyser: AnalyserNode | null;
-  let audioStream: MediaStream | null;
-  let timerInterval: any;
+    const VOLUME_THRESHOLD = 25; // Increased from 10 to better filter background noise
+    let requiredSeconds = 300; // default 5 minutes
+    let isAudioDetected = false;
+    let lowVolumeSince: number | null = null;
+    let errorAudioPlayed = false;
 
-  function formatTime(seconds: number) {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds < 10 ? "0" : ""}${remainingSeconds}`;
-  }
+    let audioPlayer: HTMLAudioElement;
+    const errorT1Audios = [
+        '/audio/DrakeErrorT1.mp4',
+        '/audio/ArnoldErrorT1.mp4',
+        '/audio/RickErrorT1.mp4',
+        '/audio/DiddyErrorT1.mp4',
+        '/audio/OptimusErrorT1.mp4'
+    ];
+    const errorT2Audio = '/audio/SpongebobErrorT2.mp4';
 
-  async function startVerification(fastTrack = false) {
-    const duration = fastTrack ? 10 : 300;
-    totalTime.set(duration);
-    timer = duration;
-    timerDisplay = formatTime(timer);
-    verificationStarted = true;
+    let audioContext: AudioContext | null;
+    let analyser: AnalyserNode | null;
+    let audioStream: MediaStream | null;
+    let tickInterval: any;
+    let audioCheckInterval: any;
 
-    try {
-      audioStream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-        video: false,
-      });
-      audioContext = new (window.AudioContext ||
-        (window as any).webkitAudioContext)();
-      analyser = audioContext.createAnalyser();
-      const source = audioContext.createMediaStreamSource(audioStream);
-      source.connect(analyser);
-      analyser.fftSize = 32;
-
-      const dataArray = new Uint8Array(analyser.frequencyBinCount);
-
-      timerInterval = setInterval(() => {
-        checkAudio(dataArray);
-      }, 1000);
-    } catch (err) {
-      console.error("Error accessing microphone:", err);
-      statusMessage = "Microphone access denied! Verification failed.";
-      statusClass = "text-red-600 shake";
-      setTimeout(() => {
-        verificationStarted = false;
-        statusMessage = "Verification in Progress...";
-        statusClass = "text-green-600 pulse-slow";
-      }, 3000);
+    function formatTime(seconds: number) {
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = seconds % 60;
+        return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
     }
-  }
 
-  function checkAudio(dataArray: Uint8Array) {
-    if (!analyser) return;
-    analyser.getByteFrequencyData(dataArray as Uint8Array<ArrayBuffer>);
-    let sum = 0;
-    for (let i = 0; i < dataArray.length; i++) {
-      sum += dataArray[i];
+    function onAudioError() {
+        console.log('Microphone access error');
     }
-    let avgVolume = sum / dataArray.length;
 
-    volumePercent = Math.min(100, (avgVolume / 128) * 100);
+    async function setupAudio() {
+        try {
+            audioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+            analyser = audioContext.createAnalyser();
+            const source = audioContext.createMediaStreamSource(audioStream);
+            source.connect(analyser);
+            analyser.fftSize = 32;
+            return true;
+        } catch (err) {
+            console.error('Error accessing microphone:', err);
+            onAudioError();
+            return false;
+        }
+    }
 
-    if (avgVolume > 10) {
-      timer--;
-      timerDisplay = formatTime(timer);
-      statusMessage = "Water flow detected... Verification proceeding.";
-      statusClass = "text-green-600 pulse-slow";
+    async function startVerification(fastTrack = false) {
+        requiredSeconds = fastTrack ? 10 : 300;
+        // reset state if starting fresh
+        if (!verificationStarted) {
+            elapsed = 0;
+            display = formatTime(elapsed);
+            verificationStarted = true;
+            statusMessage = 'Verification started. Press Start to begin the stopwatch when ready.';
+            statusClass = 'text-green-600';
+        }
 
-      if (timer <= 0) {
-        clearInterval(timerInterval);
+        const ok = await setupAudio();
+        if (!ok) {
+            verificationStarted = false;
+            statusMessage = 'Microphone unavailable. Cannot verify.';
+            statusClass = 'text-red-600';
+            return;
+        }
+
+        // auto-start running so user doesn't need to press separate start - keep a single control flow
+        startStopwatch();
+    }
+
+    async function startStopwatch() {
+        if (!analyser) {
+            const ok = await setupAudio();
+            if (!ok) {
+                statusMessage = 'Microphone unavailable. Cannot start stopwatch.';
+                statusClass = 'text-red-600';
+                return;
+            }
+        }
+
+        if (running) return;
+        running = true;
+
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+        // Single interval for audio checking (UI updates)
+        audioCheckInterval = setInterval(() => {
+            if (!analyser) return;
+            analyser.getByteFrequencyData(dataArray);
+            let sum = 0;
+            for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+            const avgVolume = sum / dataArray.length;
+            volumePercent = Math.min(100, (avgVolume / 128) * 100);
+
+            isAudioDetected = avgVolume > VOLUME_THRESHOLD;
+
+            if (running) {
+                if (isAudioDetected) {
+                    statusMessage = 'Water flow detected... accumulating time.';
+                    statusClass = 'text-green-600 pulse-slow';
+                    lowVolumeSince = null; // Reset timer when volume is detected
+                    errorAudioPlayed = false; // Reset audio played flag
+                } else {
+                    statusMessage = 'WATER FLOW NOT DETECTED! Stopwatch paused.';
+                    statusClass = 'text-red-600 shake';
+                    if (lowVolumeSince === null) {
+                        lowVolumeSince = Date.now();
+                    }
+                    // Play error sound after 0.5 seconds of low volume, but only once
+                    if (Date.now() - lowVolumeSince > 500 && !errorAudioPlayed) {
+                        playRandomErrorT1();
+                        errorAudioPlayed = true;
+                    }
+                }
+            }
+        }, 50);
+
+        // Single interval for time accumulation
+        tickInterval = setInterval(() => {
+            if (isAudioDetected) {
+                elapsed += 1;
+                display = formatTime(elapsed);
+            }
+        }, 1000);
+    }
+
+    function stopStopwatch() {
+        running = false;
+        clearInterval(audioCheckInterval);
+        clearInterval(tickInterval);
+        audioCheckInterval = null;
+        tickInterval = null;
+
+        statusMessage = 'Stopwatch stopped. You can resume or finish.';
+        statusClass = 'text-gray-700';
+
+        // stop audio resources when fully stopped (not just paused)
         stopAudioStream();
-        showView("minigame");
-      }
-    } else {
-      statusMessage = "WATER FLOW NOT DETECTED! VERIFICATION PAUSED!";
-      statusClass = "text-red-600 shake";
     }
-  }
 
-  function stopAudioStream() {
-    if (audioStream) {
-      audioStream.getTracks().forEach((track) => track.stop());
-      audioStream = null;
+    function finishVerification() {
+        // Stop any running timers first
+        if (running) {
+            stopStopwatch();
+        }
+
+        if (elapsed >= requiredSeconds) {
+            statusMessage = 'Verification complete! Well done.';
+            statusClass = 'text-green-600';
+            totalTime.set(elapsed);
+            // proceed to next view after a short delay
+            setTimeout(() => showView('minigame'), 1200);
+        } else {
+            const remaining = requiredSeconds - elapsed;
+            statusMessage = `Not enough shower time! You still need ${formatTime(remaining)}.`;
+            statusClass = 'text-red-600 shake';
+            playErrorT2();
+        }
     }
-    if (audioContext) {
-      audioContext.close();
-      audioContext = null;
+
+    function playRandomErrorT1() {
+        if (audioPlayer && !audioPlayer.paused) return; // Do not interrupt if already playing
+        const randomIndex = Math.floor(Math.random() * errorT1Audios.length);
+        audioPlayer.src = errorT1Audios[randomIndex];
+        audioPlayer.play();
     }
-  }
 
-  onDestroy(() => {
-    clearInterval(timerInterval);
-    stopAudioStream();
-  });
+    function playErrorT2() {
+        if (audioPlayer && !audioPlayer.paused) return; // Do not interrupt if already playing
+        audioPlayer.src = errorT2Audio;
+        audioPlayer.play();
+    }
 
-  function skipToMinting() {
-    clearInterval(timerInterval);
-    stopAudioStream();
-    showView("minting");
-  }
+    function stopAudioStream() {
+        if (audioStream) {
+            audioStream.getTracks().forEach(track => track.stop());
+            audioStream = null;
+        }
+        if (audioContext) {
+            audioContext.close();
+            audioContext = null;
+        }
+        analyser = null;
+    }
+
+    onDestroy(() => {
+        clearInterval(audioCheckInterval);
+        clearInterval(tickInterval);
+        stopAudioStream();
+    });
 </script>
 
 <div class="app-view space-y-6 text-center">
-  <!-- Debug Skip Button -->
-  <button
-    on:click={skipToMinting}
-    class="absolute top-2 right-2 text-xs bg-gray-200 hover:bg-gray-300 text-gray-600 px-3 py-1 rounded shadow"
-    title="Skip to minting (debug)"
-  >
-    ⚡ Debug
-  </button>
+    <h2 class="text-3xl font-bold">Step 2: Proof-of-Lather</h2>
+    <p class="text-gray-600">We better hear you shower for at least 5 minutes. Turn on your microphone, place it near your shower and please shower (we can smell you from here 😭).</p>
 
-  <h2 class="text-3xl font-bold">Step 2: Proof-of-Lather</h2>
-  <p class="text-gray-600">
-    Our patented audio-analytic AI will now verify your 5-minute continuous
-    ablution. Place your device in a safe, dry location and begin your shower.
-  </p>
+    <audio bind:this={audioPlayer}></audio>
 
-  {#if verificationStarted}
+    {#if verificationStarted}
     <div class="space-y-4">
-      <div class="bg-gray-900 text-white p-6 rounded-lg shadow-inner">
-        <div class="text-sm uppercase text-gray-400">Time Remaining</div>
-        <div class="text-7xl font-extrabold tracking-tighter">
-          {timerDisplay}
+        <div class="bg-gray-900 text-white p-6 rounded-lg shadow-inner">
+            <div class="text-sm uppercase text-gray-400">Time Accumulated</div>
+            <div class="text-6xl font-extrabold tracking-tighter">{display}</div>
         </div>
-      </div>
 
-      <div class="bg-gray-100 p-4 rounded-lg">
-        <div class="text-sm uppercase text-gray-500 mb-2">
-          Audio-Analytic Feed (Volume)
+        <div class="bg-gray-100 p-4 rounded-lg">
+            <div class="text-sm uppercase text-gray-500 mb-2">Audio-Analytic Feed (Volume)</div>
+            <div class="w-full bg-gray-300 rounded-full h-8 overflow-hidden">
+                <div class="progress-bar-inner h-full bg-blue-500 rounded-full" style="width: {volumePercent}%;"></div>
+            </div>
         </div>
-        <div class="w-full bg-gray-300 rounded-full h-8 overflow-hidden">
-          <div
-            class="progress-bar-inner h-full bg-blue-500 rounded-full"
-            style="width: {volumePercent}%;"
-          ></div>
-        </div>
-      </div>
 
-      <div class="h-12 p-2 text-lg font-medium {statusClass}" role="alert">
-        {statusMessage}
-      </div>
+        <div class="h-12 p-2 text-lg font-medium {statusClass}" role="alert">
+            {statusMessage}
+        </div>
+
+        <div class="space-y-2">
+            {#if running}
+                <button on:click={() => stopStopwatch()} class="w-full bg-red-600 text-white font-bold text-lg py-3 px-6 rounded-lg shadow-lg hover:bg-red-700 transition">Stop</button>
+            {:else}
+                <button on:click={startStopwatch} class="w-full bg-green-600 text-white font-bold text-lg py-3 px-6 rounded-lg shadow-lg hover:bg-green-700 transition">Start</button>
+            {/if}
+
+            <button on:click={finishVerification} class="w-full bg-blue-700 text-white font-bold text-lg py-3 px-6 rounded-lg shadow-lg hover:bg-blue-800 transition">
+                Finish & Check Time
+            </button>
+        </div>
     </div>
-  {:else}
+    {:else}
     <div class="space-y-4">
-      <button
-        on:click={() => startVerification(false)}
-        class="w-full bg-blue-600 text-white font-bold text-lg py-4 px-6 rounded-lg shadow-lg hover:bg-blue-700 transition duration-300 ease-in-out transform hover:-translate-y-1"
-      >
-        Start 5-Minute Verification
-      </button>
-      <button
-        on:click={() => startVerification(true)}
-        class="w-full bg-gray-700 text-white font-medium text-sm py-2 px-4 rounded-lg hover:bg-gray-800 transition duration-300"
-      >
-        Hackathon Fast-Track (10s Demo)
-      </button>
+        <button on:click={() => startVerification(false)} class="w-full bg-blue-600 text-white font-bold text-lg py-4 px-6 rounded-lg shadow-lg hover:bg-blue-700 transition duration-300 ease-in-out transform hover:-translate-y-1">
+            Start Verification (5 min requirement)
+        </button>
+        <button on:click={() => startVerification(true)} class="w-full bg-gray-700 text-white font-medium text-sm py-2 px-4 rounded-lg hover:bg-gray-800 transition duration-300">
+            Hackathon Fast-Track (10s Demo)
+        </button>
     </div>
-  {/if}
+    {/if}
 </div>

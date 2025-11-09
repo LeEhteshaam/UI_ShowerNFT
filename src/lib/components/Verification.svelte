@@ -15,6 +15,7 @@
     let isAudioDetected = false;
     let lowVolumeSince: number | null = null;
     let errorAudioPlayed = false;
+    let timerStarted = false; // Track if the timer has been started by audio detection
 
     let audioPlayer: HTMLAudioElement;
     const errorT1Audios = [
@@ -61,13 +62,12 @@
     async function startVerification(fastTrack = false) {
         requiredSeconds = fastTrack ? 10 : 300;
         // reset state if starting fresh
-        if (!verificationStarted) {
-            elapsed = 0;
-            display = formatTime(elapsed);
-            verificationStarted = true;
-            statusMessage = 'Verification started. Press Start to begin the stopwatch when ready.';
-            statusClass = 'text-green-600';
-        }
+        elapsed = 0;
+        display = formatTime(elapsed);
+        timerStarted = false; // Reset timer started flag
+        verificationStarted = true;
+        statusMessage = 'Ready to begin. Press Start when you are ready to shower.';
+        statusClass = 'text-blue-600';
 
         const ok = await setupAudio();
         if (!ok) {
@@ -77,8 +77,7 @@
             return;
         }
 
-        // auto-start running so user doesn't need to press separate start - keep a single control flow
-        startStopwatch();
+        // Do NOT auto-start the stopwatch - wait for user to click Start button
     }
 
     async function startStopwatch() {
@@ -109,28 +108,41 @@
 
             if (running) {
                 if (isAudioDetected) {
-                    statusMessage = 'Water flow detected... accumulating time.';
-                    statusClass = 'text-green-600 pulse-slow';
+                    // First time audio is detected, start the timer
+                    if (!timerStarted) {
+                        timerStarted = true;
+                        statusMessage = 'Timer started! Water flow detected...';
+                        statusClass = 'text-green-600 pulse-slow';
+                    } else {
+                        statusMessage = 'Water flow detected... accumulating time.';
+                        statusClass = 'text-green-600 pulse-slow';
+                    }
                     lowVolumeSince = null; // Reset timer when volume is detected
                     errorAudioPlayed = false; // Reset audio played flag
                 } else {
-                    statusMessage = 'WATER FLOW NOT DETECTED! Stopwatch paused.';
-                    statusClass = 'text-red-600 shake';
-                    if (lowVolumeSince === null) {
-                        lowVolumeSince = Date.now();
-                    }
-                    // Play error sound after 0.5 seconds of low volume, but only once
-                    if (Date.now() - lowVolumeSince > 500 && !errorAudioPlayed) {
-                        playRandomErrorT1();
-                        errorAudioPlayed = true;
+                    // Only show error and play audio if timer has already started
+                    if (timerStarted) {
+                        statusMessage = 'WATER FLOW NOT DETECTED! Stopwatch paused.';
+                        statusClass = 'text-red-600 shake';
+                        if (lowVolumeSince === null) {
+                            lowVolumeSince = Date.now();
+                        }
+                        // Play error sound after 0.5 seconds of low volume, but only once
+                        if (Date.now() - lowVolumeSince > 500 && !errorAudioPlayed) {
+                            playRandomErrorT1();
+                            errorAudioPlayed = true;
+                        }
+                    } else {
+                        statusMessage = 'Waiting for shower sounds to begin...';
+                        statusClass = 'text-gray-600';
                     }
                 }
             }
         }, 50);
 
-        // Single interval for time accumulation
+        // Single interval for time accumulation - only count time if timer has started
         tickInterval = setInterval(() => {
-            if (isAudioDetected) {
+            if (isAudioDetected && timerStarted) {
                 elapsed += 1;
                 display = formatTime(elapsed);
             }
@@ -144,8 +156,15 @@
         audioCheckInterval = null;
         tickInterval = null;
 
-        statusMessage = 'Stopwatch stopped. You can resume or finish.';
-        statusClass = 'text-gray-700';
+        // Show remaining time if stopped before threshold
+        if (elapsed < requiredSeconds) {
+            const remaining = requiredSeconds - elapsed;
+            statusMessage = `Stopwatch stopped. You need ${formatTime(remaining)} more to complete verification.`;
+            statusClass = 'text-orange-600';
+        } else {
+            statusMessage = 'Stopwatch stopped. You can resume or finish.';
+            statusClass = 'text-gray-700';
+        }
 
         // stop audio resources when fully stopped (not just paused)
         stopAudioStream();

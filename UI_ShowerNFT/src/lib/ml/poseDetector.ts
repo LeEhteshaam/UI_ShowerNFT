@@ -1,43 +1,34 @@
-import * as poseDetection from '@tensorflow-models/pose-detection';
 import * as tf from '@tensorflow/tfjs';
-import '@tensorflow/tfjs-backend-webgl';
-import { gestureAnalysis, targetGesture, currentPoses } from '$lib/stores';
-import { get } from 'svelte/store';
+import * as poseDetection from '@tensorflow-models/pose-detection';
+import { writable, get } from 'svelte/store';
+import { currentPoses, targetGesture, gestureAnalysis } from '$lib/stores';
 
 export type GestureType = 'scrub-head' | 'scrub-armpits' | 'scrub-butt';
 
 export interface PoseAnalysis {
-    isActive: boolean; // Are hands moving in correct position?
+    isActive: boolean;
     confidence: number;
     gesture: GestureType | null;
 }
 
 let detector: poseDetection.PoseDetector | null = null;
 let isInitializing = false;
+let modelPreloaded = false;
 
-export async function initPoseDetector() {
-    if (detector) return detector;
+// 🚀 PRELOAD MODEL ON APP START (INSTANT!)
+export async function preloadModel() {
+    if (modelPreloaded || isInitializing) return;
     
-    // Prevent duplicate initialization
-    if (isInitializing) {
-        while (isInitializing) {
-            await new Promise(resolve => setTimeout(resolve, 100));
-        }
-        return detector;
-    }
-    
+    console.log('🚀 [PRELOAD] Starting TensorFlow.js backend + model download...');
     isInitializing = true;
     
     try {
-        console.log('🔧 Initializing TensorFlow.js backend...');
-        
-        // Force WebGL backend (avoid WebGPU issues)
+        // Initialize TensorFlow backend (GPU warmup)
         await tf.setBackend('webgl');
         await tf.ready();
+        console.log('✅ [PRELOAD] WebGL backend ready:', tf.getBackend());
         
-        console.log('✅ TensorFlow.js backend ready:', tf.getBackend());
-        console.log('📥 Loading MoveNet model...');
-        
+        // Preload MoveNet model (downloads + compiles shaders)
         const detectorConfig = {
             modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
         };
@@ -47,14 +38,31 @@ export async function initPoseDetector() {
             detectorConfig
         );
         
-        console.log('✅ MoveNet model loaded successfully!');
-        return detector;
+        modelPreloaded = true;
+        console.log('✅ [PRELOAD] MoveNet model ready! Tutorial will start instantly.');
     } catch (error) {
-        console.error('❌ Failed to initialize pose detector:', error);
-        throw error;
+        console.error('❌ [PRELOAD] Failed to preload model:', error);
     } finally {
         isInitializing = false;
     }
+}
+
+export async function initPoseDetector() {
+    // If already preloaded, return immediately! ⚡
+    if (detector && modelPreloaded) {
+        console.log('⚡ [INSTANT] Model already loaded, skipping init!');
+        return detector;
+    }
+    
+    // Fallback: load model if preload didn't run
+    if (isInitializing) {
+        while (isInitializing) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        return detector;
+    }
+    
+    return preloadModel();
 }
 
 // Analyze poses from the store and update gestureAnalysis store

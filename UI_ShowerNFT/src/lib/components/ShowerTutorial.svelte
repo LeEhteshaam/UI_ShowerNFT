@@ -20,17 +20,17 @@
   const steps: TutorialStep[] = [
     {
       gesture: "scrub-head",
-      instruction: "🧴 Scrub your head/hair thoroughly",
+      instruction: "Scrub your head with both hands! 🧴",
       duration: 10,
     },
     {
       gesture: "scrub-armpits",
-      instruction: "🙌 Raise your arms and scrub those armpits!",
+      instruction: "Wash those armpits! Raise your arms! 💪",
       duration: 10,
     },
     {
       gesture: "scrub-butt",
-      instruction: "🍑 Don't forget the butt! (Hand near hip area)",
+      instruction: "Scrub that booty! Judges will love this! 🍑",
       duration: 10,
     },
   ];
@@ -43,15 +43,15 @@
 
   async function handleVideoReady(video: HTMLVideoElement) {
     videoElement = video;
-    isLoading = true;
     loadError = "";
 
     try {
-      console.log("🎥 Video ready, initializing pose detector...");
+      console.log("📹 Webcam ready, initializing pose detector...");
+      // Model should already be preloaded - this returns instantly! ⚡
       await initPoseDetector();
       detector = getDetector();
-      console.log("✅ Pose detector ready!");
       isLoading = false;
+      console.log("✅ Pose detector ready (preloaded!)");
     } catch (error) {
       console.error("❌ Pose detector initialization failed:", error);
       loadError =
@@ -98,7 +98,7 @@
 
   <h2 class="text-3xl font-bold text-center">Interactive Shower Tutorial</h2>
   <p class="text-gray-600 text-center">
-    Follow the on-screen instructions and perform each motion for 10 seconds.
+    Complete all steps to prove you showered! 🚿
   </p>
 
   <WebcamFeed onVideoReady={handleVideoReady}>
@@ -108,22 +108,10 @@
   </WebcamFeed>
 
   {#if !isLoading && !loadError}
-    <div class="bg-gray-50 border border-gray-200 p-3 rounded text-xs">
-      <div class="font-bold text-gray-700 mb-2">🎯 Skeleton Visualization:</div>
-      <div class="flex gap-4 flex-wrap">
-        <div class="flex items-center gap-2">
-          <div class="w-3 h-3 rounded-full bg-green-500"></div>
-          <span>High Confidence (70%+)</span>
-        </div>
-        <div class="flex items-center gap-2">
-          <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
-          <span>Medium (50-70%)</span>
-        </div>
-        <div class="flex items-center gap-2">
-          <div class="w-3 h-3 rounded-full bg-orange-500"></div>
-          <span>Low (30-50%)</span>
-        </div>
-      </div>
+    <div class="bg-green-50 border border-green-200 p-3 rounded text-sm">
+      <p class="text-green-700 font-medium">
+        ✅ Model loaded! (Preloaded on app start for instant demo)
+      </p>
     </div>
   {/if}
 
@@ -142,10 +130,7 @@
       <div
         class="animate-spin inline-block w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full"
       ></div>
-      <p class="mt-2">Loading pose detection model...</p>
-      <p class="text-xs mt-1 text-gray-400">
-        This may take 5-10 seconds on first load
-      </p>
+      <p class="mt-2">⚡ Initializing (should be instant!)...</p>
     </div>
   {:else if currentStep}
     <ShowerStep

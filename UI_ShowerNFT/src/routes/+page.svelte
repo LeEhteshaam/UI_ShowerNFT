@@ -1,6 +1,8 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import "../app.css";
   import { view } from "$lib/stores";
+  import { preloadModel } from "$lib/ml/poseDetector";
   import Hero from "$lib/components/Hero.svelte";
   import Tutorial from "$lib/components/Tutorial.svelte";
   import ShowerTutorial from "$lib/components/ShowerTutorial.svelte";
@@ -20,6 +22,14 @@
     loading: Loading,
     complete: Complete,
   };
+
+  // 🚀 PRELOAD MODEL IMMEDIATELY ON APP START FOR INSTANT TUTORIAL!
+  onMount(() => {
+    console.log(
+      "🎯 App mounted, preloading TensorFlow.js model in background..."
+    );
+    preloadModel();
+  });
 </script>
 
 <main

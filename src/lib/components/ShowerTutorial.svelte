@@ -31,7 +31,7 @@
     },
     {
       gesture: "scrub-butt",
-      instruction: "Scrub that booty! Judges will love this! 🍑",
+      instruction: "Scrub that booty! 🍑",
       duration: 10,
     },
   ];

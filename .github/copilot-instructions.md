@@ -88,11 +88,12 @@ Components use: `import { showView } from '$lib/stores';`
 ## Planned Features (Not Yet Implemented)
 
 - [x] Blockchain integration (wallet connection, NFT minting) ✅ **COMPLETE**
-- [ ] Timer/countdown for 24-hour NFT validity (contract supports it, UI not yet implemented)
-- [ ] Push notification system for "stinky" alerts
+- [ ] Login with Google, storing user data in Firebase, to enable social features + have CI/CD for easy demo deployment with 
+- [ ] Timer/countdown for 24-hour NFT validity (contract supports it, UI not yet implemented, per user)
+- [ ] Push notification system for "stinky" alerts (when user's NFT expires, notify his friends) -- for demo, when part of signing up, ask for friend's phone number to send SMS via Twilio
 - [ ] Friend list / social features
 - [ ] Photo upload for shower selfies
-- [ ] Streak tracking
+- [ ] Streak tracking (can use Firebase and SQL for this)
 - [ ] Leaderboard of "cleanest" students
 - [ ] NFT gallery/badge display
 

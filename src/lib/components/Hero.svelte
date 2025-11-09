@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { showView, walletAddress } from "$lib/stores";
+  import { showView, walletAddress, currentUser } from "$lib/stores";
+  import { signOut } from "$lib/authService";
   import {
     connectWallet,
     disconnectWallet,
@@ -17,6 +18,10 @@
     disconnectWallet();
   }
 
+  async function handleSignOut() {
+    await signOut();
+  }
+
   function handleBeginVerification() {
     if (!$walletAddress) {
       alert("Please connect your wallet first!");
@@ -27,6 +32,33 @@
 </script>
 
 <div class="app-view space-y-6 text-center">
+  <!-- User Info Bar -->
+  {#if $currentUser}
+    <div
+      class="bg-gray-50 border border-gray-200 rounded-lg p-4 flex items-center justify-between"
+    >
+      <div class="flex items-center gap-3">
+        {#if $currentUser.photoURL}
+          <img
+            src={$currentUser.photoURL}
+            alt="Profile"
+            class="w-10 h-10 rounded-full"
+          />
+        {/if}
+        <div class="text-left">
+          <p class="font-medium text-gray-800">{$currentUser.displayName}</p>
+          <p class="text-xs text-gray-500">{$currentUser.email}</p>
+        </div>
+      </div>
+      <button
+        on:click={handleSignOut}
+        class="text-sm text-red-600 hover:text-red-800 underline"
+      >
+        Sign Out
+      </button>
+    </div>
+  {/if}
+
   <h1 class="text-4xl md:text-5xl font-extrabold text-blue-700">
     Prove Your Hygiene.
   </h1>

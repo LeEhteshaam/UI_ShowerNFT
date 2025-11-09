@@ -1,5 +1,6 @@
 <script lang="ts">
   import { showView, tutorialCompleted } from "$lib/stores";
+  import { completeTutorial } from "$lib/authService";
   import { onDestroy } from "svelte";
   import WebcamFeed from "./WebcamFeed.svelte";
   import ShowerStep from "./ShowerStep.svelte";
@@ -63,19 +64,22 @@
   function handleStepComplete() {
     currentStepIndex++;
     if (currentStepIndex >= steps.length) {
-      // Mark tutorial as completed
+      // Mark tutorial as completed in store AND Firebase
       tutorialCompleted.set(true);
+      completeTutorial(); // Save to Firebase
       showView("verification"); // Proceed to next flow
     }
   }
 
   function skipTutorial() {
     tutorialCompleted.set(true);
+    completeTutorial(); // Save to Firebase
     showView("verification");
   }
 
   function skipToMinting() {
     tutorialCompleted.set(true);
+    completeTutorial(); // Save to Firebase
     showView("minting");
   }
 

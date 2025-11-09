@@ -90,7 +90,7 @@
             }
         }
 
-        if (running) return;
+        if (running || !analyser) return;
         running = true;
 
         const dataArray = new Uint8Array(analyser.frequencyBinCount);

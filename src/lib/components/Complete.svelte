@@ -100,9 +100,9 @@
     </div>
   </div>
   <button
-    on:click={() => showView("hero")}
-    class="w-full bg-gray-600 text-white font-bold text-lg py-4 px-6 rounded-lg shadow-lg hover:bg-gray-700 transition duration-300"
+    on:click={() => showView("dashboard")}
+    class="w-full bg-blue-600 text-white font-bold text-lg py-4 px-6 rounded-lg shadow-lg hover:bg-blue-700 transition duration-300"
   >
-    Mint Another (Why?)
+    Back to Dashboard
   </button>
 </div>

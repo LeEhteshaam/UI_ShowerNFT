@@ -1,5 +1,6 @@
 import { writable } from 'svelte/store';
 import type { GestureType } from './ml/poseDetector';
+import type { User } from 'firebase/auth';
 
 export const view = writable('hero');
 
@@ -25,6 +26,11 @@ export const gestureAnalysis = writable<{
 export { walletAddress } from './web3';
 export const mintedTokenId = writable<number | null>(null);
 export const mintTxHash = writable<string | null>(null);
+
+// Firebase Auth
+export const currentUser = writable<User | null>(null);
+export const friendsPhoneNumbers = writable<string[]>([]);
+export const hasCompletedOnboarding = writable(false);
 
 export function showView(viewName: string) {
     view.set(viewName);

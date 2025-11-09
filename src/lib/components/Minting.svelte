@@ -1,10 +1,19 @@
 <script lang="ts">
-  import { showView, showerThought, walletAddress } from "$lib/stores";
-  import { mintShowerNFT } from "$lib/web3";
+  import { showView, showerThought, walletAddress, totalTime } from "$lib/stores";
+  import { mintShowerNFT, connectWallet, isMetaMaskInstalled } from "$lib/web3";
+  import { recordNFTMint, saveWalletAddress } from "$lib/authService";
 
   let thought = "";
   let isMinting = false;
   let errorMessage = "";
+
+  async function handleConnectWallet() {
+    await connectWallet();
+    // Save wallet to Firebase when reconnecting
+    if ($walletAddress) {
+      await saveWalletAddress($walletAddress);
+    }
+  }
 
   async function mintNFT() {
     if (!$walletAddress) {
@@ -22,9 +31,17 @@
     // Attempt to mint
     const result = await mintShowerNFT();
 
-    if (result.success) {
-      // Success! Store the transaction details
-      // The Loading component will handle the transition to Complete
+    if (result.success && result.txHash) {
+      // Record NFT mint to Firebase (even if tokenId is 0 for now)
+      await recordNFTMint({
+        tokenId: result.tokenId || 0,
+        txHash: result.txHash,
+        showerThought: thought,
+        duration: $totalTime,
+        walletAddress: $walletAddress
+      });
+
+      // Success! The Loading component will handle the transition to Complete
     } else {
       // Show error and go back
       errorMessage = result.error || "Failed to mint NFT";
@@ -40,6 +57,20 @@
     You are now eligible to mint your Certificate of Cleanliness. As an optional
     step, you may log your profound shower thought to the blockchain... forever.
   </p>
+
+  <!-- Wallet Status -->
+  {#if !$walletAddress}
+    <div class="bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-3 rounded-lg">
+      <p class="font-medium">⚠️ Wallet Not Connected</p>
+      <p class="text-sm mb-2">Please connect your MetaMask wallet to mint.</p>
+      <button
+        on:click={handleConnectWallet}
+        class="w-full bg-orange-500 text-white font-bold py-2 px-4 rounded hover:bg-orange-600"
+      >
+        🦊 Connect MetaMask
+      </button>
+    </div>
+  {/if}
 
   <div>
     <label

@@ -14,11 +14,13 @@
   import Complete from "$lib/components/Complete.svelte";
   import Login from "$lib/components/Login.svelte";
   import Onboarding from "$lib/components/Onboarding.svelte";
+  import BrowseUsers from "$lib/components/BrowseUsers.svelte";
 
   const components = {
     login: Login,
     onboarding: Onboarding,
     dashboard: Dashboard,
+    browseusers: BrowseUsers,
     hero: Hero,
     tutorial: Tutorial,
     showertutorial: ShowerTutorial,

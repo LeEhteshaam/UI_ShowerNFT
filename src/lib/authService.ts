@@ -5,7 +5,7 @@ import {
 	onAuthStateChanged,
 	type User
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, updateDoc, deleteField } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, deleteField, collection, getDocs } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL, deleteObject } from 'firebase/storage';
 import { storage } from './firebase';
 import {
@@ -383,5 +383,24 @@ export async function sendExpiryNotifications(userName: string, friendPhones: st
 		sent: successCount,
 		errors: errors.length > 0 ? errors : undefined,
 	};
+}
+
+/**
+ * Get all users with their latest NFT status (for user discovery page)
+ */
+export async function getAllUsers() {
+	try {
+		const usersSnapshot = await getDocs(collection(db, 'users'));
+		const users = usersSnapshot.docs.map(doc => ({
+			uid: doc.id,
+			...doc.data()
+		}));
+
+		console.log(`✅ Loaded ${users.length} total users`);
+		return { success: true, users };
+	} catch (error: any) {
+		console.error('Error fetching all users:', error);
+		return { success: false, error: error.message };
+	}
 }
 

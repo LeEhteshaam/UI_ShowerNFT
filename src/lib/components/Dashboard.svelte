@@ -297,7 +297,7 @@
       </p>
     </div>
   {/if}  <!-- Freshen Up Button -->
-  <div class="pt-4">
+  <div class="pt-4 space-y-3">
     <button
       on:click={startShowerVerification}
       class="w-full bg-linear-to-r from-blue-500 to-blue-700 text-white font-bold text-xl py-6 px-8 rounded-lg shadow-xl hover:from-blue-600 hover:to-blue-800 transition duration-300 ease-in-out transform hover:-translate-y-1 active:translate-y-0"
@@ -306,6 +306,17 @@
     </button>
     <p class="text-xs text-gray-500 text-center mt-2">
       Start a new shower verification to mint a fresh NFT
+    </p>
+
+    <!-- Browse Users Button -->
+    <button
+      on:click={() => showView("browseusers")}
+      class="w-full bg-purple-600 text-white font-bold text-lg py-4 px-6 rounded-lg shadow-lg hover:bg-purple-700 transition duration-300 ease-in-out transform hover:-translate-y-1 active:translate-y-0"
+    >
+      👥 Browse Community
+    </button>
+    <p class="text-xs text-gray-500 text-center">
+      Check if your friends are fresh or stinky
     </p>
   </div>
 

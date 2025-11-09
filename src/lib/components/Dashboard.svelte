@@ -96,37 +96,47 @@
 
   <!-- Countdown Timer -->
   <div class="text-center space-y-4">
-    <h3 class="text-lg font-medium text-gray-700">
-      Time Until NFT Expires
-    </h3>
-    
+    <h3 class="text-lg font-medium text-gray-700">Time Until NFT Expires</h3>
+
     <div class="flex justify-center gap-4">
       <!-- Hours -->
-      <div class="bg-blue-600 text-white rounded-lg p-6 shadow-lg min-w-[100px]">
+      <div
+        class="bg-blue-600 text-white rounded-lg p-6 shadow-lg min-w-[100px]"
+      >
         <div class="text-5xl font-bold font-mono">{pad(hours)}</div>
         <div class="text-sm uppercase mt-2">Hours</div>
       </div>
-      
+
       <!-- Minutes -->
-      <div class="bg-blue-600 text-white rounded-lg p-6 shadow-lg min-w-[100px]">
+      <div
+        class="bg-blue-600 text-white rounded-lg p-6 shadow-lg min-w-[100px]"
+      >
         <div class="text-5xl font-bold font-mono">{pad(minutes)}</div>
         <div class="text-sm uppercase mt-2">Minutes</div>
       </div>
-      
+
       <!-- Seconds -->
-      <div class="bg-blue-600 text-white rounded-lg p-6 shadow-lg min-w-[100px]">
+      <div
+        class="bg-blue-600 text-white rounded-lg p-6 shadow-lg min-w-[100px]"
+      >
         <div class="text-5xl font-bold font-mono">{pad(seconds)}</div>
         <div class="text-sm uppercase mt-2">Seconds</div>
       </div>
     </div>
 
     {#if isExpired}
-      <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
+      <div
+        class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg"
+      >
         <p class="font-bold">⚠️ Your Proof-of-Lather has expired!</p>
-        <p class="text-sm">You're officially stinky. Your friends have been notified. 📱</p>
+        <p class="text-sm">
+          You're officially stinky. Your friends have been notified. 📱
+        </p>
       </div>
     {:else}
-      <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg">
+      <div
+        class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg"
+      >
         <p class="font-medium">✅ Your hygiene is verified!</p>
         <p class="text-sm">Stay fresh, CS student. Your NFT is valid.</p>
       </div>

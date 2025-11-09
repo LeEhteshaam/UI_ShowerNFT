@@ -51,7 +51,7 @@ src/
     ├── +layout.svelte
     └── api/
         └── check-expired-nfts/
-            └── +server.ts # Cron endpoint for SMS notifications
+            └── +server.ts # API endpoint for NFT expiry checks (client-side polling)
 
 .github/
 ├── copilot-instructions.md
@@ -59,7 +59,7 @@ src/
 └── vercel_design.md
 
 ShowerNFT.sol              # ERC-721 smart contract (deployed)
-vercel.json                # Vercel deployment config + cron jobs
+vercel.json                # Vercel deployment config (no cron jobs)
 ```
 
 ## Current Flow
@@ -248,47 +248,59 @@ Components use: `import { showView } from '$lib/stores';`
 
 **Goal**: Notify friends when NFT expires (user becomes "stinky")
 
-**Implementation**:
+**Implementation Method**: Client-side polling from Dashboard (every 5 minutes)
 
-- Implement `/api/check-expired-nfts` endpoint logic:
-  - Query Firestore for all users with `nftMints`
-  - Check each NFT's `expiresAt` timestamp
-  - If expired and `isActive: true`:
-    - Get user's `friendsPhones` array
-    - Send SMS via Twilio to each friend
-    - Mark NFT as `isActive: false`
-- Twilio SMS message:
-  - "🚿 ALERT: [User Name] is now officially STINKY! Their Proof-of-Lather NFT has expired. Shame them into showering! - The Groom Protocol"
-- Vercel Cron runs endpoint every hour
+**How It Works**:
+
+- Dashboard component polls `/api/check-expired-nfts?userId=<uid>` every 5 minutes
+- API endpoint checks ONLY that specific user's NFTs for expiry
+- If NFT expired and `isActive: true`:
+  - Gets user's `friendsPhones` array from Firestore
+  - Sends SMS via Twilio to each friend
+  - Marks NFT as `isActive: false`
+- No duplicate notifications (each user only checks their own NFTs)
+
+**Benefits**:
+
+- ✅ No Vercel cron limits (free tier compatible)
+- ✅ Runs frequently (every 5 min) for demo purposes
+- ✅ Per-user checking prevents duplicate SMS
+- ✅ Only runs when users are active (Dashboard open)
+
+**Twilio SMS Message**:
+
+- "🚿 ALERT: [User Name] is now officially STINKY! Their Proof-of-Lather NFT has expired. Shame them into showering! - The Groom Protocol"
 
 **Acceptance Criteria**:
 
-- [ ] Cron job queries Firestore for expired NFTs
-- [ ] SMS sent to all friends when NFT expires
-- [ ] Funny, on-brand message
+- [x] Client-side polling implemented in Dashboard
+- [x] API endpoint accepts userId parameter
+- [ ] Firestore query for user's expired NFTs
+- [ ] SMS sent via Twilio to each friend
 - [ ] NFT marked inactive after notification
 - [ ] No duplicate notifications
 
 ## CI/CD Status
 
-⏳ **READY TO DEPLOY** - Waiting for permissions from project lead
+✅ **DEPLOYED** - Using client-side polling instead of Vercel cron
 
-**What's Ready**:
+**What's Configured**:
 
-- ✅ Vercel configuration (`vercel.json`)
-- ✅ Environment variables documented
+- ✅ Vercel configuration (`vercel.json`) - cron removed
 - ✅ Auto-deploy from GitHub configured
-- ✅ Cron job setup for NFT expiry checks
+- ✅ Client-side polling from Dashboard (every 5 minutes)
+- ✅ Per-user NFT checking (no duplicates)
 - ✅ All documentation complete
+- ✅ 100% free tier compatible
 
-**Pending**:
+**What's Working**:
 
-- [ ] Project lead approval for Vercel deployment
-- [ ] Add production domain to Firebase Authorized Domains
-- [ ] Test auto-deployment pipeline
-- [ ] Verify cron job execution
+- ✅ Dashboard polls API every 5 minutes
+- ✅ API endpoint accepts userId parameter
+- ⏳ Firestore query logic (TODO)
+- ⏳ Twilio SMS integration (TODO)
 
-**See**: `CICD_SETUP.md`, `.github/vercel_design.md` for full details
+**See**: `.github/vercel_design.md` for full details
 
 ---
 

@@ -10,6 +10,31 @@
   let minutes = 0;
   let seconds = 0;
   let countdownInterval: number;
+  let expiryCheckInterval: number;
+
+  // Check for expired NFTs and notify friends
+  async function checkExpiredNFTs() {
+    if (!$currentUser) return; // Don't check if not logged in
+
+    try {
+      const response = await fetch(
+        `/api/check-expired-nfts?userId=${$currentUser.uid}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer demo-secret`,
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("🔔 NFT expiry check completed:", data);
+      }
+    } catch (error) {
+      console.error("❌ Error checking expired NFTs:", error);
+    }
+  }
 
   // Update countdown display
   function updateCountdown() {
@@ -38,11 +63,22 @@
   onMount(() => {
     // Start countdown
     countdownInterval = setInterval(updateCountdown, 1000) as unknown as number;
+
+    // Check for expired NFTs every 5 minutes (300000ms)
+    // Also check immediately on mount
+    checkExpiredNFTs();
+    expiryCheckInterval = setInterval(
+      checkExpiredNFTs,
+      5 * 60 * 1000
+    ) as unknown as number;
   });
 
   onDestroy(() => {
     if (countdownInterval) {
       clearInterval(countdownInterval);
+    }
+    if (expiryCheckInterval) {
+      clearInterval(expiryCheckInterval);
     }
   });
 

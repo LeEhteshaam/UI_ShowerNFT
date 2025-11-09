@@ -19,19 +19,18 @@
 
   const steps: TutorialStep[] = [
     {
-      gesture: "rub-hands",
-      instruction: "💧 Lather the soap by rubbing your hands together",
-      duration: 10,
-    },
-    {
       gesture: "scrub-head",
-      instruction: "🧴 Scrub your head/hair",
+      instruction: "🧴 Scrub your head/hair thoroughly",
       duration: 10,
     },
-    { gesture: "scrub-arms", instruction: "💪 Scrub your arms", duration: 10 },
     {
       gesture: "scrub-armpits",
-      instruction: "🙌 Scrub your armpits",
+      instruction: "🙌 Raise your arms and scrub those armpits!",
+      duration: 10,
+    },
+    {
+      gesture: "scrub-butt",
+      instruction: "🍑 Don't forget the butt! (Hand near hip area)",
       duration: 10,
     },
   ];

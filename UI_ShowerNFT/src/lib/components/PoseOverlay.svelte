@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from "svelte";
   import * as poseDetection from "@tensorflow-models/pose-detection";
   import { currentPoses } from "$lib/stores";
+  import { analyzePosesFromStore } from "$lib/ml/poseDetector";
 
   export let video: HTMLVideoElement | null;
   export let detector: any; // PoseDetector instance
@@ -13,6 +14,11 @@
   let lastFrameTime = 0;
   const targetFPS = 30; // Cap at 30 FPS for smooth performance
   const frameInterval = 1000 / targetFPS;
+
+  // Separate update rate for confidence score (slower to reduce flicker)
+  let lastConfidenceUpdateTime = 0;
+  const confidenceUpdateInterval = 100; // Update confidence text every 100ms (1 FPS)
+  let displayedConfidence = "0";
 
   // MoveNet skeleton connections (which keypoints connect to which)
   const connections = [
@@ -65,8 +71,11 @@
     try {
       const poses = await detector.estimatePoses(video);
 
-      // Update shared store
+      // Update shared store with raw poses
       currentPoses.set(poses);
+
+      // Trigger gesture analysis (ML logic in poseDetector.ts)
+      analyzePosesFromStore();
 
       if (poses.length > 0 && showSkeleton) {
         const pose = poses[0];
@@ -116,17 +125,25 @@
           }
         });
 
-        // Draw confidence score
-        context.fillStyle = "#ffffff";
-        context.font = "bold 16px monospace";
-        context.strokeStyle = "#000000";
-        context.lineWidth = 3;
+        // Calculate confidence score (update less frequently to reduce flicker)
         const avgConfidence = (
           (keypoints.reduce((sum: number, kp: any) => sum + kp.score, 0) /
             keypoints.length) *
           100
         ).toFixed(0);
-        const text = `Detection: ${avgConfidence}%`;
+
+        // Only update displayed confidence every 500ms
+        if (timestamp - lastConfidenceUpdateTime > confidenceUpdateInterval) {
+          displayedConfidence = avgConfidence;
+          lastConfidenceUpdateTime = timestamp;
+        }
+
+        // Draw confidence score (using smoothed value)
+        context.fillStyle = "#ffffff";
+        context.font = "bold 16px monospace";
+        context.strokeStyle = "#000000";
+        context.lineWidth = 3;
+        const text = `Detection: ${displayedConfidence}%`;
         context.strokeText(text, 10, 30);
         context.fillText(text, 10, 30);
       }

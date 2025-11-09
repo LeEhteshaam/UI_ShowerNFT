@@ -1,8 +1,10 @@
 import * as poseDetection from '@tensorflow-models/pose-detection';
 import * as tf from '@tensorflow/tfjs';
 import '@tensorflow/tfjs-backend-webgl';
+import { gestureAnalysis, targetGesture, currentPoses } from '$lib/stores';
+import { get } from 'svelte/store';
 
-export type GestureType = 'rub-hands' | 'scrub-head' | 'scrub-arms' | 'scrub-armpits';
+export type GestureType = 'scrub-head' | 'scrub-armpits' | 'scrub-butt';
 
 export interface PoseAnalysis {
     isActive: boolean; // Are hands moving in correct position?
@@ -55,70 +57,48 @@ export async function initPoseDetector() {
     }
 }
 
-export async function analyzePose(
-    video: HTMLVideoElement,
-    targetGesture: GestureType
-): Promise<PoseAnalysis> {
-    if (!detector) {
-        await initPoseDetector();
-    }
+// Analyze poses from the store and update gestureAnalysis store
+export function analyzePosesFromStore() {
+    const poses = get(currentPoses);
+    const gesture = get(targetGesture);
     
-    const poses = await detector!.estimatePoses(video);
-    
-    if (poses.length === 0) {
-        return { isActive: false, confidence: 0, gesture: null };
+    if (poses.length === 0 || !gesture) {
+        gestureAnalysis.set({ isActive: false, confidence: 0, gesture: null });
+        return;
     }
     
     const pose = poses[0];
     const keypoints = pose.keypoints;
     
     // Get key body parts
-    const leftWrist = keypoints.find(kp => kp.name === 'left_wrist');
-    const rightWrist = keypoints.find(kp => kp.name === 'right_wrist');
-    const nose = keypoints.find(kp => kp.name === 'nose');
-    const leftShoulder = keypoints.find(kp => kp.name === 'left_shoulder');
-    const rightShoulder = keypoints.find(kp => kp.name === 'right_shoulder');
+    const leftWrist = keypoints.find((kp: any) => kp.name === 'left_wrist');
+    const rightWrist = keypoints.find((kp: any) => kp.name === 'right_wrist');
+    const nose = keypoints.find((kp: any) => kp.name === 'nose');
+    const leftShoulder = keypoints.find((kp: any) => kp.name === 'left_shoulder');
+    const rightShoulder = keypoints.find((kp: any) => kp.name === 'right_shoulder');
+    const leftHip = keypoints.find((kp: any) => kp.name === 'left_hip');
+    const rightHip = keypoints.find((kp: any) => kp.name === 'right_hip');
     
     // Detect motion based on target gesture
-    switch (targetGesture) {
-        case 'rub-hands':
-            return detectHandRubbing(leftWrist, rightWrist);
+    let analysis: PoseAnalysis;
+    switch (gesture) {
         case 'scrub-head':
-            return detectHeadScrubbing(leftWrist, rightWrist, nose);
-        case 'scrub-arms':
-            return detectArmScrubbing(leftWrist, rightWrist, leftShoulder, rightShoulder);
+            analysis = detectHeadScrubbing(leftWrist, rightWrist, nose);
+            break;
         case 'scrub-armpits':
-            return detectArmpitScrubbing(leftWrist, rightWrist, leftShoulder, rightShoulder);
+            analysis = detectArmpitScrubbing(leftWrist, rightWrist, leftShoulder, rightShoulder);
+            break;
+        case 'scrub-butt':
+            analysis = detectButtScrubbing(leftWrist, rightWrist, leftHip, rightHip, leftShoulder, rightShoulder);
+            break;
         default:
-            return { isActive: false, confidence: 0, gesture: null };
+            analysis = { isActive: false, confidence: 0, gesture: null };
     }
+    
+    gestureAnalysis.set(analysis);
 }
 
 // Helper detection functions
-function detectHandRubbing(
-    leftWrist: any,
-    rightWrist: any
-): PoseAnalysis {
-    if (!leftWrist || !rightWrist) {
-        return { isActive: false, confidence: 0, gesture: null };
-    }
-    
-    // Check if hands are close together (rubbing)
-    const distance = Math.sqrt(
-        Math.pow(leftWrist.x - rightWrist.x, 2) +
-        Math.pow(leftWrist.y - rightWrist.y, 2)
-    );
-    
-    const isRubbing = distance < 100; // Proximity threshold
-    const confidence = Math.min(leftWrist.score, rightWrist.score);
-    
-    return {
-        isActive: isRubbing && confidence > 0.3,
-        confidence,
-        gesture: isRubbing ? 'rub-hands' : null
-    };
-}
-
 function detectHeadScrubbing(
     leftWrist: any,
     rightWrist: any,
@@ -149,44 +129,13 @@ function detectHeadScrubbing(
     };
 }
 
-function detectArmScrubbing(
-    leftWrist: any,
-    rightWrist: any,
-    leftShoulder: any,
-    rightShoulder: any
-): PoseAnalysis {
-    // Check if hand is near opposite shoulder (scrubbing arms)
-    if (!leftWrist || !rightWrist || !leftShoulder || !rightShoulder) {
-        return { isActive: false, confidence: 0, gesture: null };
-    }
-    
-    const leftToRightShoulder = Math.sqrt(
-        Math.pow(leftWrist.x - rightShoulder.x, 2) +
-        Math.pow(leftWrist.y - rightShoulder.y, 2)
-    );
-    
-    const rightToLeftShoulder = Math.sqrt(
-        Math.pow(rightWrist.x - leftShoulder.x, 2) +
-        Math.pow(rightWrist.y - leftShoulder.y, 2)
-    );
-    
-    const isScrubbing = leftToRightShoulder < 120 || rightToLeftShoulder < 120;
-    const confidence = Math.min(leftWrist.score, rightWrist.score);
-    
-    return {
-        isActive: isScrubbing && confidence > 0.3,
-        confidence,
-        gesture: isScrubbing ? 'scrub-arms' : null
-    };
-}
-
 function detectArmpitScrubbing(
     leftWrist: any,
     rightWrist: any,
     leftShoulder: any,
     rightShoulder: any
 ): PoseAnalysis {
-    // Similar to arm scrubbing but hands should be higher (near armpits)
+    // Check if hand is raised and near shoulder height (armpits)
     if (!leftWrist || !rightWrist || !leftShoulder || !rightShoulder) {
         return { isActive: false, confidence: 0, gesture: null };
     }
@@ -202,6 +151,63 @@ function detectArmpitScrubbing(
         isActive: isScrubbing && confidence > 0.3,
         confidence,
         gesture: isScrubbing ? 'scrub-armpits' : null
+    };
+}
+
+function detectButtScrubbing(
+    leftWrist: any,
+    rightWrist: any,
+    leftHip: any,
+    rightHip: any,
+    leftShoulder: any,
+    rightShoulder: any
+): PoseAnalysis {
+    // Check if hands are near hip area (butt scrubbing!)
+    if (!leftWrist || !rightWrist || !leftHip || !rightHip || !leftShoulder || !rightShoulder) {
+        return { isActive: false, confidence: 0, gesture: null };
+    }
+    
+    // Calculate distance from wrists to hips
+    const leftWristToLeftHip = Math.sqrt(
+        Math.pow(leftWrist.x - leftHip.x, 2) +
+        Math.pow(leftWrist.y - leftHip.y, 2)
+    );
+    
+    const rightWristToRightHip = Math.sqrt(
+        Math.pow(rightWrist.x - rightHip.x, 2) +
+        Math.pow(rightWrist.y - rightHip.y, 2)
+    );
+    
+    const leftWristToRightHip = Math.sqrt(
+        Math.pow(leftWrist.x - rightHip.x, 2) +
+        Math.pow(leftWrist.y - rightHip.y, 2)
+    );
+    
+    const rightWristToLeftHip = Math.sqrt(
+        Math.pow(rightWrist.x - leftHip.x, 2) +
+        Math.pow(rightWrist.y - leftHip.y, 2)
+    );
+    
+    // Check if hands are lowered (below shoulders) and near hips
+    const leftHandLowered = leftWrist.y > leftShoulder.y;
+    const rightHandLowered = rightWrist.y > rightShoulder.y;
+    const handsLowered = leftHandLowered || rightHandLowered;
+    
+    // Check if either hand is near any hip (generous threshold for easier detection)
+    const threshold = 200;
+    const nearHips = 
+        leftWristToLeftHip < threshold || 
+        rightWristToRightHip < threshold ||
+        leftWristToRightHip < threshold ||
+        rightWristToLeftHip < threshold;
+    
+    const isScrubbing = handsLowered && nearHips;
+    const confidence = Math.max(leftWrist.score, rightWrist.score);
+    
+    return {
+        isActive: isScrubbing && confidence > 0.3,
+        confidence,
+        gesture: isScrubbing ? 'scrub-butt' : null
     };
 }
 

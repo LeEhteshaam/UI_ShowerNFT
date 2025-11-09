@@ -1,4 +1,5 @@
 import { writable } from 'svelte/store';
+import type { GestureType } from './ml/poseDetector';
 
 export const view = writable('hero');
 
@@ -7,8 +8,18 @@ export const showerThought = writable('');
 
 export const tutorialCompleted = writable(false);
 
-// Pose detection - shared between PoseOverlay and ShowerStep
+// Pose detection - raw poses from MoveNet
 export const currentPoses = writable<any[]>([]);
+
+// Current gesture being tested (set by ShowerStep)
+export const targetGesture = writable<GestureType | null>(null);
+
+// Gesture analysis result - computed by poseDetector, consumed by ShowerStep
+export const gestureAnalysis = writable<{
+    isActive: boolean;
+    confidence: number;
+    gesture: GestureType | null;
+}>({ isActive: false, confidence: 0, gesture: null });
 
 // Re-export Web3/Wallet stores from web3.ts to avoid duplication
 export { walletAddress } from './web3';

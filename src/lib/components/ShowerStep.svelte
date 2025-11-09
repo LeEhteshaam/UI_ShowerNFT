@@ -11,18 +11,43 @@
   let timeRemaining = durationSeconds;
   let interval: any;
   let isTimerRunning = false;
+  let audioElement: HTMLAudioElement | null = null;
+  let hasPlayedAudio = false;
 
   // Subscribe to gesture analysis from ML module
   $: isActive = $gestureAnalysis.isActive;
   $: confidence = $gestureAnalysis.confidence;
 
+  // Play audio for specific gestures on load
+  function playGestureAudio(gesture: GestureType) {
+    let audioPath = "";
+    
+    if (gesture === "scrub-head") {
+      audioPath = "/audio/diddyHairHead.mp4";
+    } else if (gesture === "scrub-armpits") {
+      audioPath = "/audio/diddyArmPitts.mp4";
+    }
+    
+    if (audioPath && !hasPlayedAudio) {
+      audioElement = new Audio(audioPath);
+      audioElement.play().catch(err => {
+        console.error("Failed to play audio:", err);
+      });
+      hasPlayedAudio = true;
+    }
+  }
+
   // Reset timer when gesture changes (new step)
   $: if (gesture) {
     console.log(`🔄 New gesture: ${gesture}, resetting timer`);
     timeRemaining = durationSeconds;
+    hasPlayedAudio = false;
 
     // Tell ML module what gesture to look for
     targetGesture.set(gesture);
+
+    // Play audio for this gesture
+    playGestureAudio(gesture);
 
     // Restart the timer for the new step
     stopTimer();
@@ -35,6 +60,15 @@
 
     interval = setInterval(() => {
       if (isActive && timeRemaining > 0) {
+        // Play butt audio when timer starts counting down for butt gesture
+        if (gesture === "scrub-butt" && timeRemaining === durationSeconds && !hasPlayedAudio) {
+          audioElement = new Audio("/audio/diddyBooty.mp4");
+          audioElement.play().catch(err => {
+            console.error("Failed to play audio:", err);
+          });
+          hasPlayedAudio = true;
+        }
+        
         timeRemaining--;
         console.log(
           `⏱️ Timer tick: ${timeRemaining}s remaining (active: ${isActive})`
@@ -63,6 +97,12 @@
   onDestroy(() => {
     console.log(`🛑 ShowerStep destroyed for gesture: ${gesture}`);
     stopTimer();
+    
+    // Clean up audio element
+    if (audioElement) {
+      audioElement.pause();
+      audioElement = null;
+    }
   });
 
   $: statusClass = isActive ? "text-green-600" : "text-red-600";
